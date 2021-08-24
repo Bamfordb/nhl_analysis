@@ -2,7 +2,7 @@ library(nhlapi)
 library(rvest)
 library(xml2)
 library(tidyverse)
-library(data.table)
+library(httr)
 
 # Examples data using Steven Stamkos
 stamkos_2010_stats <- as_tibble(nhl_players_seasons('Steven Stamkos', 2010))
@@ -25,7 +25,7 @@ player_salary <- nhl_salary_2021_2022_html %>%
   xml_find_all("//td[contains(@data-stat, 'salary')]") %>% 
   html_text()
 
-# Get career stats for all skaters in 2021 season-------------------------------------------
+# Get season stats for all skaters in 2020 season-------------------------------------------
 players_names <- salary_table$Player[1:704]
 all_skaters_stats <- nhl_players_seasons(players_names, 2020)
 
@@ -33,18 +33,25 @@ all_skaters_stats <- nhl_players_seasons(players_names, 2020)
 nhl_teams <- nhl_teams()
 rosters <- nhl_teams_rosters(nhl_teams$id)
 
-# Extract player ids from rosters
+# Extract player ids from rosters-----------------------------------------------------------
 player_ids <- rosters$roster.roster %>% 
   lapply('[', c('person.id')) %>% 
   flatten() %>% 
-  flatten() %>% 
-  as_tibble_col()
+  flatten()
 
-# 
-
-
-
-
+# Get career regular season stats for all skaters in all seasons til present.
+url_start <- "https://statsapi.web.nhl.com/api/v1/people/"
+url_end <-  "/stats?stats=careerRegularSeason&season=20192020"
+full_urls <-  paste0(url_start, player_ids, url_end) %>% 
+  as_tibble()
   
+
+
+
+            
+
+
+
+
   
   
