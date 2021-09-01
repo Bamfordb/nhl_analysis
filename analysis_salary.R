@@ -4,8 +4,12 @@ library(data.table)
 library(nhlapi)
 
 # Read in data ---------------------------------------------------------------------------
-stat_data <- read_csv('all_stats_combined.csv')
-bio_data <- read_csv('all_bio_combined.csv')
+warin
+bio_data <- read_csv('all_bio_combined.csv', encoding = 'UTF-8')
+
+# Minimal cleaning duplicated rows 
+half_data_join <- merge(bio_data, stat_data)
+half_data_join <- half_data_join[!duplicated(half_data_join[c('Player', 'DOB')]), ]
 
 
 # Scrape hockey reference for salary table -----------------------------------------------
@@ -22,47 +26,46 @@ salary_table <- html_table(nhl_salary_2021_2022_html) %>%
 # Fix some columns that contain incorrect names, or added punctuation.
 salary_table$Player <- gsub(',', '', salary_table$Player) 
 
-# Finding difference between both Player names columns, Trying to match 704 entries with 926 total.
+# Finding difference between both Player names columns, Trying to match 705 entries with 926 total.
 name_bio <- bio_data$Player %>% as_tibble()
 
 sorted_name_bio <- name_bio %>% 
   separate(value, into = c('first_name', 'last_i'), sep = '[\\s]', extra = 'merge') %>% 
   arrange_at(vars(c(2, 1)))
 
-name_salary <- salary_table$Player %>% as_tibble()
-colnames(name_salary) <- c('value1') 
+name_salary <- salary_table %>% as_tibble()
+colnames(name_salary) <- c('value1', 'Salary') 
 
 sorted_name_salary <- name_salary  %>% 
   separate(value1, into = c('first_name1', 'last_i1'), sep = '[\\s]', extra = 'merge') %>% 
-  arrange_at(vars(c(2, 1))) %>% 
-  unique() #There is one duplicate Sebastian Aho %>% 
+  arrange_at(vars(c(2, 1)))
 
-# Get names where order is swapped, reverse and replace.
+
+# Place names where order is reversed and replace.
 wrong_name_table <- sorted_name_salary %>% filter(str_detect(first_name1, ',$'))
 
-wrong_name_table$first_name1 <- str_remove(wrong_name_table$first_name1,  ',$')
+wrong_name_table$first_name1 <- 
+  str_remove(wrong_name_table$first_name1,  ',$')
 
-flipped_wrong_name_table <- wrong_name_table[c('last_i1', 'first_name1')] %>% 
-  rename(flipped_wrong_name_table, last_i1 = first_name1, first_name1 = last_i1)
+flipped_wrong_name_table <- 
+  rename(wrong_name_table, last_i1 = first_name1, first_name1 = last_i1, Salary = Salary)
 
+flipped_wrong_name_table <- flipped_wrong_name_table[c('first_name1', 'last_i1', 'Salary')]
 
-
-
-
-
-# sorted_names_combined <- max(length(sorted_name_bio), length(sorted_name_salary))
-# length(sorted_name_bio) <- names_sorted_combined
-# length(sorted_name_salary) <- names_sorted_combined
-# 
-# clean_names <- bind_rows(sorted_name_bio, sorted_name_salary)
+merged_salary_flipped_table <- sorted_name_salary %>% 
+  filter(!str_detect(first_name1, ',$')) %>% 
+  bind_rows(flipped_wrong_name_table) %>% 
+  unite(Player, first_name1, last_i1, sep = ' ', remove = TRUE, na.rm = FALSE)
 
 
-
+# Debug names that are not registering based on NHL Stats.-------------------------------------- 
+#47 current missing some due to name errors, others have multiple Ids
+nhl_players(merged_salary_flipped_table$Player)
+ 
 
 # Join tables together---------------------------------------------------------------------
-half_data_join <- inner_join(bio_data, stat_data, by = 'Player')
-full_data <- left_join(salary_table, half_data_join, by = 'Player')
-
+full_data <- left_join(salary_table, half_data_join, by = 'Player') 
+  
 
 # Clean table of duplicate columns,--------------------------------------------------------
 # Rename and mutate columns,
