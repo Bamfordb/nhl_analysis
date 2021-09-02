@@ -2,6 +2,7 @@ library(tidyverse)
 library(rvest)
 library(data.table)
 library(nhlapi)
+library(lubridate)
 
 # Read in data ---------------------------------------------------------------------------
 stat_data <- read_csv('all_stats_combined.csv')
@@ -126,7 +127,7 @@ full_data$First_Season <- str_sub(full_data$First_Season, 1, 4)
 na <- full_data[rowSums(is.na(full_data)) > 0,]
 
 
-# Join goalie csvs 
+# Join goalie csvs ---------------------------------------------------------------------
 # Impute goalie data into missing columns
 goalie_data <- left_join(goalie_bio_data, goalie_stat_data, by = c('Player', 'GP')) %>% 
   select(-contains('.y'),
@@ -150,7 +151,15 @@ goalie_data <- goalie_data %>%
          SOL = SO.x, 
          Ties = T.x)
 
+# Get list of goalies that are on the na table 
+# Find 56 goalies
+na_goalie_merge <- merge(na, goalie_data, by = 'Player')
 
+na_goalie_merge <- na_goalie_merge %>% 
+  select(
+    !contains('.x'))
 
+na_goalie_merge <- na_goalie_merge %>% 
+  setNames(gsub('\\.y', '', names(.)))
 
 
