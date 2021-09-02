@@ -4,12 +4,15 @@ library(data.table)
 library(nhlapi)
 
 # Read in data ---------------------------------------------------------------------------
-warin
-bio_data <- read_csv('all_bio_combined.csv', encoding = 'UTF-8')
+stat_data <- read_csv('all_stats_combined.csv')
+bio_data <- read_csv('all_bio_combined.csv')
+goalie_stat_data <- read_csv('goalie_sum.csv')
+goalie_bio_data <- read_csv('goalie_bio.csv')
 
-# Minimal cleaning duplicated rows 
-half_data_join <- merge(bio_data, stat_data)
-half_data_join <- half_data_join[!duplicated(half_data_join[c('Player', 'DOB')]), ]
+# Join csvs, Minimal cleaning duplicated rows.
+# We will join goalie csvs after cleaning others.
+half_data_join <- left_join(bio_data, stat_data, by = c('Player', 'GP')) %>% 
+  select(-contains('.y')) 
 
 
 # Scrape hockey reference for salary table -----------------------------------------------
@@ -23,10 +26,15 @@ salary_table <- html_table(nhl_salary_2021_2022_html) %>%
   as_tibble() %>% 
   select( -c('Tm', 'Cap Hit'))
 
-# Fix some columns that contain incorrect names, or added punctuation.
-salary_table$Player <- gsub(',', '', salary_table$Player) 
+# Debug names that are not registering based on NHL Stats.-------------------------------------- 
+# 47 current missing some due to name errors, others have multiple Ids
+# 32 after fixing  15 misspelled names
+# The remaining errors occur due to same name or 
+# NHL Api doesn't recognize Player Name without PlayerId
+nhl_players(merged_salary_flipped_table$Player)
 
-# Finding difference between both Player names columns, Trying to match 705 entries with 926 total.
+
+# Finding difference between both Player names columns, Trying to match 707 entries with 926 total.
 name_bio <- bio_data$Player %>% as_tibble()
 
 sorted_name_bio <- name_bio %>% 
@@ -57,33 +65,91 @@ merged_salary_flipped_table <- sorted_name_salary %>%
   bind_rows(flipped_wrong_name_table) %>% 
   unite(Player, first_name1, last_i1, sep = ' ', remove = TRUE, na.rm = FALSE)
 
+# Dictionary of misspelled names and their correct spelling.
 
-# Debug names that are not registering based on NHL Stats.-------------------------------------- 
-#47 current missing some due to name errors, others have multiple Ids
-nhl_players(merged_salary_flipped_table$Player)
- 
+misspelled_names_correct_names <- 
+  c('Anthony DeAngelo'= 'Tony DeAngelo', 
+    'Mitch Marner' = 'Mitchell Marner',
+    'Alexander Nylander' = 'Alex Nylander',
+    'Cal Petersen' = 'Calvin Petersen',
+    'Evgeni Dadonov' = 'Evgenii Dadonov',
+    'Joshua Brown' = 'Josh Brown',
+    'Joshua Morrissey' = 'Josh Morrissey',
+    'Matthew Benning' = 'Matt Benning',
+    'Maxime Comtois' = 'Max Comtois',
+    'Michael Matheson' = 'Mike Matheson',
+    'Nicholas Paul' = 'Nick Paul',
+    'Patrick Maroon' = 'Pat Maroon',
+    'Samuel Blais' = 'Sammy Blais',
+    'Zachary Sanford' = 'Zach Sanford',
+    'Zachary Werenski' = 'Zach Werenski'
+  )
+
+# Fix the spelling errors.
+merged_salary_flipped_table$Player <- 
+  merged_salary_flipped_table$Player %>% 
+  str_replace_all(misspelled_names_correct_names)
+
+clean_salary_table <- merged_salary_flipped_table
+
 
 # Join tables together---------------------------------------------------------------------
-full_data <- left_join(salary_table, half_data_join, by = 'Player') 
-  
+full_data <- left_join(clean_salary_table, half_data_join, by = 'Player')
+
 
 # Clean table of duplicate columns,--------------------------------------------------------
 # Rename and mutate columns,
 # Other cleaning and notable changes to table.
-full_data <- full_data %>% 
-  select(-c('HOF', 'GP.y', 'G.y', 'A.y', 'P.y', 'S/C.y', 'Pos.y'))
+# Drop Sebastian Aho duplicates as there are two unique players
+full_data <- full_data[-c(3, 4), ]
 
 full_data <- full_data %>% 
-  rename(Laterality = 'S/C.x', Postion = Pos.x, Country = Ctry, 
-        Nationality = Ntnlty, Height_cm = Ht, Weight_lbs = Wt,
-        Games_Played = GP.x, Goals = G.x, Assists = A.x, 
-        Points = P.x, First_Season = '1st Season')
+  select(-c('HOF'))
+
+full_data <- full_data %>% 
+  rename(Laterality = 'S/C.x', 
+         Postion = Pos.x, 
+         Country = Ctry, 
+        Nationality = Ntnlty, 
+        Height_cm = Ht, 
+        Weight_lbs = Wt,
+        Games_Played = GP,
+        Goals = G.x, 
+        Assists = A.x, 
+        Points = P.x, 
+        First_Season = '1st Season')
 
 full_data$First_Season <- str_sub(full_data$First_Season, 1, 4)
 
 
-# See all 96 columns that registered NAs, Most appear to be Goalies, since goalie stats are measured differently
+# See all columns that registered NAs, Most appear to be Goalies, since goalie stats recorded in different place.
 na <- full_data[rowSums(is.na(full_data)) > 0,]
+
+
+# Join goalie csvs 
+# Impute goalie data into missing columns
+goalie_data <- left_join(goalie_bio_data, goalie_stat_data, by = c('Player', 'GP')) %>% 
+  select(-contains('.y'),
+         -c('HOF'))
+
+# Clean to match column names in full_data
+goalie_data <- goalie_data %>%   
+  rename(Laterality = 'S/C.x',
+         Country = Ctry, 
+         Nationality = Ntnlty, 
+         Height_cm = Ht, 
+         Weight_lbs = Wt,
+         Games_Played = GP, 
+         Goals = G, 
+         Assists = A, 
+         Points = P, 
+         First_Season = '1st Season',
+         Wins = W.x, 
+         Losses = L.x, 
+         OTL = OT.x,
+         SOL = SO.x, 
+         Ties = T.x)
+
 
 
 
