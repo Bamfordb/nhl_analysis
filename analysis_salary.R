@@ -109,7 +109,7 @@ full_data <- full_data %>%
 
 full_data <- full_data %>% 
   rename(Laterality = 'S/C.x', 
-         Postion = Pos.x, 
+         Position = Pos.x, 
          Country = Ctry, 
         Nationality = Ntnlty, 
         Height_cm = Ht, 
@@ -121,6 +121,9 @@ full_data <- full_data %>%
         First_Season = '1st Season')
 
 full_data$First_Season <- str_sub(full_data$First_Season, 1, 4)
+full_data$DOB <- mdy(full_data$DOB)
+full_data$DOB <- parse_date_time(full_data$DOB, 'ymd')
+
 
 
 # See all columns that registered NAs, Most appear to be Goalies, since goalie stats recorded in different place.
@@ -151,6 +154,8 @@ goalie_data <- goalie_data %>%
          SOL = SO.x, 
          Ties = T.x)
 
+goalie_data$First_Season <- str_sub(goalie_data$First_Season, 1, 4)
+
 # Get list of goalies that are on the na table 
 # Find 56 goalies
 na_goalie_merge <- merge(na, goalie_data, by = 'Player')
@@ -162,4 +167,59 @@ na_goalie_merge <- na_goalie_merge %>%
 na_goalie_merge <- na_goalie_merge %>% 
   setNames(gsub('\\.y', '', names(.)))
 
+na_goalie_merge$Position <- na_goalie_merge[, 3] = 'G'
+na_goalie_merge$DOB <-  parse_date_time(na_goalie_merge$DOB, 'ymd')
 
+
+# Coalesce duplicated columns together 
+
+
+test <- full_join(full_data, na_goalie_merge, by = 'Player')
+
+
+a <- test %>%  mutate(Salary = coalesce(Salary.x, Salary.y),
+        Laterality = coalesce(Laterality.x, Laterality.y),
+        Position = coalesce(Position.x, Position.y),
+        DOB = coalesce(DOB.x, DOB.y),
+        Birth_City = coalesce(`Birth City.x`, `Birth City.y`),
+        'S/P' = coalesce(`S/P.x`, `S/P.y`),
+        Country = coalesce(Country.x, Country.y),
+        Nationality = coalesce(Nationality.x, Nationality.y),
+        Height_cm = coalesce(Height_cm.x, Height_cm.y),
+        Weight_lbs = coalesce(Weight_lbs.x, Weight_lbs.y),
+        Draft_Year = coalesce(`Draft Yr.x`, `Draft Yr.y`),
+        Round = coalesce(Round.x, Round.y),
+        Overall = coalesce(Overall.x, Overall.y),
+        First_Season = coalesce(First_Season.x, First_Season.y),
+        Games_Played = coalesce(Games_Played.x, Games_Played.y),
+        Goals = coalesce(Goals.x, Goals.y),
+        Assists = coalesce(Assists.x, Assists.y),
+        Points = coalesce(Points.x, Points.y),
+        PPG = coalesce(PPG.x, PPG.y),
+        PPP = coalesce(PPP.x, PPP.y),
+        SHG = coalesce(SHG.x, SHG.y),
+        SHP = coalesce(SHP.x, SHP.y),
+        OTG = coalesce(OTG.x, OTG.y),
+        GWG = coalesce(GWG.x, GWG.y),
+        
+        '+/-' = coalesce(`+/-.x`, `+/-.y`),
+        PIM = coalesce(PIM.x, PIM.y),
+        'P/GP' = coalesce(`P/GP.x`, `P/GP.y`),
+        EVG = coalesce(EVG.x, EVG.y),
+        GWG = coalesce(GWG.x, GWG.y),
+        S = coalesce(S.x, S.y),
+        'S%' = coalesce(`%.x`, `S%.y`),
+        'TOI/GP' = coalesce(`TOI/GP.x`, `TOI/GP.y`),
+        'FOW%' = coalesce(`FOW%.x`, `FOW%.y`)
+        ) %>% 
+  select(!contains(c('.x', '.y')))
+  
+  
+
+DOB
++/-
+P/GP
+S%
+TOI/GP
+FOW%
+ 
