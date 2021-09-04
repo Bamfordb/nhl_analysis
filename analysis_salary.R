@@ -15,7 +15,11 @@ goalie_bio_data <- read_csv('goalie_bio.csv')
 half_data_join <- left_join(bio_data, stat_data, by = c('Player', 'GP')) %>% 
   select(-contains('.y')) 
 
+# Change both players names due to corrupted special character.
+half_data_join$Player[484] <- c('Alexis Lafreniere')
+half_data_join$Player[822] <- c('Tim Stützle')
 
+  
 # Scrape hockey reference for salary table -----------------------------------------------
 nhl_salary_2021_2022_url<- 'https://www.hockey-reference.com/friv/current_nhl_salaries.cgi'
 nhl_salary_2021_2022_html <- read_html(nhl_salary_2021_2022_url)
@@ -83,8 +87,13 @@ misspelled_names_correct_names <-
     'Patrick Maroon' = 'Pat Maroon',
     'Samuel Blais' = 'Sammy Blais',
     'Zachary Sanford' = 'Zach Sanford',
-    'Zachary Werenski' = 'Zach Werenski'
-  )
+    'Zachary Werenski' = 'Zach Werenski',
+    'Michael Anderson' =  'Mikey Anderson',
+    'Henrik Borgström' = 'Henrik Borgstrom',
+    'Zachary Jones' = 'Zac Jones',
+    'Dominik Kubalík' = 'Dominik Kubalik',
+    'Joshua Norris' = 'Josh Norris'
+    )
 
 # Fix the spelling errors.
 merged_salary_flipped_table$Player <- 
@@ -126,7 +135,8 @@ full_data$DOB <- parse_date_time(full_data$DOB, 'ymd')
 
 
 
-# See all columns that registered NAs, Most appear to be Goalies, since goalie stats recorded in different place.
+# See all columns that registered NAs, Most appear to be Goalies, 
+# since goalie stats recorded in different place.
 na <- full_data[rowSums(is.na(full_data)) > 0,]
 
 
@@ -171,13 +181,11 @@ na_goalie_merge$Position <- na_goalie_merge[, 3] = 'G'
 na_goalie_merge$DOB <-  parse_date_time(na_goalie_merge$DOB, 'ymd')
 
 
-# Coalesce duplicated columns together 
+# Coalesce duplicated columns together for final merge ------------------------------------------ 
+full_plus_goalie <- full_join(full_data, na_goalie_merge, by = 'Player')
 
 
-test <- full_join(full_data, na_goalie_merge, by = 'Player')
-
-
-a <- test %>%  mutate(Salary = coalesce(Salary.x, Salary.y),
+clean_final_table <- full_plus_goalie %>%  mutate(Salary = coalesce(Salary.x, Salary.y),
         Laterality = coalesce(Laterality.x, Laterality.y),
         Position = coalesce(Position.x, Position.y),
         DOB = coalesce(DOB.x, DOB.y),
@@ -208,18 +216,32 @@ a <- test %>%  mutate(Salary = coalesce(Salary.x, Salary.y),
         EVG = coalesce(EVG.x, EVG.y),
         GWG = coalesce(GWG.x, GWG.y),
         S = coalesce(S.x, S.y),
-        'S%' = coalesce(`%.x`, `S%.y`),
+        'S%' = coalesce(`S%.x`, `S%.y`),
         'TOI/GP' = coalesce(`TOI/GP.x`, `TOI/GP.y`),
         'FOW%' = coalesce(`FOW%.x`, `FOW%.y`)
         ) %>% 
   select(!contains(c('.x', '.y')))
   
-  
-
-DOB
-+/-
-P/GP
-S%
-TOI/GP
-FOW%
+# Now just to find some of the remaining rows where information on player is missing.
+players_no_data <- 
+clean_final_table %>% 
+  filter(is.na(Laterality)) %>% 
+  select(Player) %>% 
+  as.character()
  
+players_no_salary <- 
+  clean_final_table %>% 
+  filter(Salary == '') %>% 
+  select(Player)
+
+
+
+clean_final_table <- clean_final_table %>% 
+  filter(Player %in% players_no_data)
+
+
+
+
+
+
+
