@@ -10,7 +10,7 @@ bio_data <- read_csv('all_bio_combined.csv')
 goalie_stat_data <- read_csv('goalie_sum.csv')
 goalie_bio_data <- read_csv('goalie_bio.csv')
 
-# Join csvs, Minimal cleaning duplicated rows.
+# Join csvs, Minimal removal duplicated rows.
 # We will join goalie csvs after cleaning others.
 half_data_join <- left_join(bio_data, stat_data, by = c('Player', 'GP')) %>% 
   select(-contains('.y')) 
@@ -177,7 +177,10 @@ na_goalie_merge <- na_goalie_merge %>%
 na_goalie_merge <- na_goalie_merge %>% 
   setNames(gsub('\\.y', '', names(.)))
 
-na_goalie_merge$Position <- na_goalie_merge[, 3] = 'G'
+
+# Change Position from NA to G
+na_goalie_merge[, 'Position'] = 'G'
+
 na_goalie_merge$DOB <-  parse_date_time(na_goalie_merge$DOB, 'ymd')
 
 
@@ -185,7 +188,9 @@ na_goalie_merge$DOB <-  parse_date_time(na_goalie_merge$DOB, 'ymd')
 full_plus_goalie <- full_join(full_data, na_goalie_merge, by = 'Player')
 
 
-clean_final_table <- full_plus_goalie %>%  mutate(Salary = coalesce(Salary.x, Salary.y),
+clean_final_table <- full_plus_goalie %>%  
+  mutate(
+        Salary = coalesce(Salary.x, Salary.y),
         Laterality = coalesce(Laterality.x, Laterality.y),
         Position = coalesce(Position.x, Position.y),
         DOB = coalesce(DOB.x, DOB.y),
@@ -220,27 +225,66 @@ clean_final_table <- full_plus_goalie %>%  mutate(Salary = coalesce(Salary.x, Sa
         'TOI/GP' = coalesce(`TOI/GP.x`, `TOI/GP.y`),
         'FOW%' = coalesce(`FOW%.x`, `FOW%.y`)
         ) %>% 
-  select(!contains(c('.x', '.y')))
+  select(
+    !contains(c('.x', '.y')))
   
 # Now just to find some of the remaining rows where information on player is missing.
 players_no_data <- 
 clean_final_table %>% 
   filter(is.na(Laterality)) %>% 
   select(Player) %>% 
-  as.character()
- 
+  as_tibble()
+
+clean_final_table <- filter(clean_final_table, 
+                            !(Player %in% players_no_data$Player))
+
+
+#  Find 13 of the 15 missing players data try and enter into existing table. 
+# missing_bio_data <-  nhl_players(players_no_data$Player)  %>% 
+#   as_tibble() %>% 
+#   select(birthDate, birthCity, birthStateProvince, birthCountry, nationality, height, weight, primaryPosition.abbreviation)
+# 
+# 
+# missing_stat_data <- nhl_players_allseasons(players_no_data$Player) %>% as_tibble() 
+# names(missing_stat_data) <- gsub(pattern = '^stat.', replacement = '', names(missing_stat_data))
+# 
+# missing_stat_data <- missing_stat_data %>% 
+#   select(
+#     -c(season, sequenceNumber, blocked, shifts, team.name, team.link, team.id, league.name, league.link, league.id, 
+#        url, copyright, seasonStart, shutouts, powerPlaySaves, shortHandedSaves, shortHandedShots,
+#        powerPlaySavePercentage, shortHandedSavePercentage, evenStrengthSavePercentage))
+# 
+# 
+# temp <- missing_stat_data %>% group_by(playerId)
+
+
+# Players with no reported salary are ending there 3 year entry level contracts. All values at $832,500, 
 players_no_salary <- 
   clean_final_table %>% 
-  filter(Salary == '') %>% 
-  select(Player)
+  filter(Salary == '') 
+
+# Fill blank salaries with correct salary.
+clean_final_table$Salary[clean_final_table$Salary == ''] = '832,500'
+
+
+# 694 of the 709 salaries, are reported in this table along with basic biographical data, and total career regular season stats.
+# Some stats are not recorded for goalies, as goalie stats are measuring different metrics.
+unorganized_final_table <- filter(clean_final_table, !(Player %in% players_no_data$Player))
+
+# Last bit of cleaning, to reorganize the order of the columns in a more logical way.
+
+# Move goalies stats to last column as most of these columns will be NA for non-goalies.
+unorganized_final_table <- unorganized_final_table %>% 
+  relocate(2:13, .after = last_col())
+
+# Last is to move the Salary to the left, as that is the variable we are interested in.
+
+clean_bio_stat_goalie_data <- unorganized_final_table %>% 
+  relocate(Salary, .before = Player)
 
 
 
-clean_final_table <- clean_final_table %>% 
-  filter(Player %in% players_no_data)
-
-
-
+write_csv(clean_bio_stat_goalie_data, 'nhl_active_skater_salary_stats_2021.csv', col_names = TRUE)
 
 
 
