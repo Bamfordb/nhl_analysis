@@ -5,6 +5,8 @@ library(tidyverse)
 library(httr)
 library(jsonlite)
 
+# Use the NHL Api to retrieve data and merge with salary data in CSV.
+
 # # Reference Examples data using Steven Stamkos.--------------------------------------------
 # stamkos_2010_stats <- as_tibble(nhl_players_seasons('Steven Stamkos', 2010))
 # stamkos_career_stats <-  nhl_players_allseasons('Steven Stamkos')
