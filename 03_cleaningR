@@ -17,7 +17,7 @@ half_data_join <- left_join(bio_data, stat_data, by = c('Player', 'GP')) %>%
 
 # Change both players names due to corrupted special character.
 half_data_join$Player[484] <- c('Alexis Lafreniere')
-half_data_join$Player[822] <- c('Tim Stützle')
+half_data_join$Player[822] <- c('Tim StÃ¼tzle')
 
   
 # Scrape hockey reference for salary table -----------------------------------------------
@@ -89,9 +89,9 @@ misspelled_names_correct_names <-
     'Zachary Sanford' = 'Zach Sanford',
     'Zachary Werenski' = 'Zach Werenski',
     'Michael Anderson' =  'Mikey Anderson',
-    'Henrik Borgström' = 'Henrik Borgstrom',
+    'Henrik BorgstrÃ¶m' = 'Henrik Borgstrom',
     'Zachary Jones' = 'Zac Jones',
-    'Dominik Kubalík' = 'Dominik Kubalik',
+    'Dominik KubalÃ­k' = 'Dominik Kubalik',
     'Joshua Norris' = 'Josh Norris'
     )
 
